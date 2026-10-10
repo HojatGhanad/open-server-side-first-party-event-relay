@@ -1,0 +1,110 @@
+# Open Server Side First Party Event Relay
+#
+#   browser -> your site (/your-path/*) -> reverse proxy -> relay:8090 -> sGTM -> GA4 / Google Ads
+#
+# Quick start:
+#   cp .env.example .env            # fill in CONTAINER_CONFIG and the tokens
+#   cp tenants.example.yml tenants.yml
+#   docker compose up -d
+#
+# Build the relay image from source instead of pulling it:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+
+x-sgtm: &sgtm
+  image: ${FP_SGTM_IMAGE:-gcr.io/cloud-tagging-10302018/gtm-cloud-image:stable}
+  restart: unless-stopped
+  expose:
+    - "8080"
+  logging: &logs
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+
+  relay:
+    image: ${FP_RELAY_IMAGE:-ghcr.io/hojatghanad/fp-relay:latest}
+    restart: unless-stopped
+    environment:
+      FP_SGTM_URL: http://sgtm-tagging:8080
+      FP_SGTM_PREVIEW_URL: http://sgtm-preview:8080
+      FP_PREVIEW_TOKEN: ${FP_PREVIEW_TOKEN:-}
+      FP_TRACE_TOKEN: ${FP_TRACE_TOKEN:?set FP_TRACE_TOKEN in .env}
+      FP_TRACE_CLIENT_IPS: ${FP_TRACE_CLIENT_IPS:-}
+      FP_DEPLOYMENT_MODE: ${FP_DEPLOYMENT_MODE:-same_origin}
+      FP_SITE_ORIGINS: ${FP_SITE_ORIGINS:-}
+      FP_COLLECT_PREFIX: ${FP_COLLECT_PREFIX-/metrics}
+      FP_PROTECTED_SEGMENT: ${FP_PROTECTED_SEGMENT:-}
+      FP_PROTECTED_KEY: ${FP_PROTECTED_KEY:-}
+      FP_LOADER_PATH: ${FP_LOADER_PATH:-}
+      FP_TENANTS_FILE: /etc/fp/tenants.yml
+      FP_ADMIN_TOKEN: ${FP_ADMIN_TOKEN:-}
+      FP_UPSTREAM_TIMEOUT_MS: 10000
+    volumes:
+      # Create tenants.yml before the first start (cp tenants.example.yml tenants.yml),
+      # otherwise Docker creates an empty directory at this path.
+      - ./tenants.yml:/etc/fp/tenants.yml:ro
+    ports:
+      # Loopback only. Put a reverse proxy (nginx, Caddy, a CDN) in front of it.
+      - "127.0.0.1:8090:8090"
+    depends_on:
+      - sgtm-tagging
+      - sgtm-preview
+    mem_limit: 1g
+    logging: *logs
+
+  sgtm-tagging:
+    <<: *sgtm
+    environment:
+      CONTAINER_CONFIG: ${CONTAINER_CONFIG:?paste the server container config from Google Tag Manager}
+      RUN_AS_PREVIEW_SERVER: "false"
+    mem_limit: 1g
+
+  sgtm-preview:
+    <<: *sgtm
+    environment:
+      CONTAINER_CONFIG: ${CONTAINER_CONFIG:?paste the server container config from Google Tag Manager}
+      RUN_AS_PREVIEW_SERVER: "true"
+    mem_limit: 512m
+
+  # ── Optional: operations panel ────────────────────────────────────────────
+  # Start with: docker compose --profile panel up -d
+  panel:
+    profiles: ["panel"]
+    image: ${FP_RELAY_IMAGE:-ghcr.io/hojatghanad/fp-relay:latest}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: panel
+      PANEL_DB_URL: jdbc:postgresql://postgres:5432/fppanel
+      PANEL_DB_USER: fppanel
+      PANEL_DB_PASSWORD: ${PANEL_DB_PASSWORD:-}
+      PANEL_RELAY_URL: http://relay:8090
+      PANEL_RELAY_TOKEN: ${FP_ADMIN_TOKEN:-}
+      PANEL_ADMIN_USER: ${PANEL_ADMIN_USER:-admin}
+      PANEL_ADMIN_PASSWORD_HASH: ${PANEL_ADMIN_PASSWORD_HASH:-}
+    volumes:
+      - ./tenants.yml:/etc/fp/tenants.yml
+    ports:
+      - "127.0.0.1:8091:8091"
+    depends_on:
+      - postgres
+      - relay
+    mem_limit: 512m
+    logging: *logs
+
+  postgres:
+    profiles: ["panel"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fppanel
+      POSTGRES_USER: fppanel
+      POSTGRES_PASSWORD: ${PANEL_DB_PASSWORD:-}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    mem_limit: 512m
+    logging: *logs
+
+volumes:
+  pgdata:

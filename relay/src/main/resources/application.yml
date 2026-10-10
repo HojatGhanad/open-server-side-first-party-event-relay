@@ -1,0 +1,71 @@
+server:
+  port: 8090
+  # Trust X-Forwarded-* from the reverse proxy in front of the relay.
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: fp-relay
+  # The relay role uses no database. JDBC is enabled only for the panel profile below.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
+  mvc:
+    problemdetails:
+      enabled: false
+
+fp:
+  sgtm-url: ${FP_SGTM_URL:http://sgtm-tagging:8080}
+  sgtm-preview-url: ${FP_SGTM_PREVIEW_URL:http://sgtm-preview:8080}
+  preview-token: ${FP_PREVIEW_TOKEN:}
+  collect-prefix: ${FP_COLLECT_PREFIX:/metrics}
+  deployment-mode: ${FP_DEPLOYMENT_MODE:same_origin}
+  site-origins: ${FP_SITE_ORIGINS:}
+  protected-segment: ${FP_PROTECTED_SEGMENT:}
+  protected-key: ${FP_PROTECTED_KEY:}
+  loader-path: ${FP_LOADER_PATH:}
+  tenants-file: ${FP_TENANTS_FILE:}
+  admin-token: ${FP_ADMIN_TOKEN:}
+  trace-token: ${FP_TRACE_TOKEN:}
+  trace-client-ips: ${FP_TRACE_CLIENT_IPS:}
+  trace-enroll-hours: ${FP_TRACE_ENROLL_HOURS:8}
+  trace-buffer-size: ${FP_TRACE_BUFFER_SIZE:200}
+  upstream-timeout-ms: ${FP_UPSTREAM_TIMEOUT_MS:10000}
+
+logging:
+  level:
+    io.fprelay.relay: INFO
+
+---
+# Panel role: SPRING_PROFILES_ACTIVE=panel
+spring:
+  config:
+    activate:
+      on-profile: panel
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: ${PANEL_DB_URL:jdbc:postgresql://postgres:5432/fppanel}
+    username: ${PANEL_DB_USER:fppanel}
+    password: ${PANEL_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+
+server:
+  port: ${PANEL_PORT:8091}
+
+panel:
+  relay-url: ${PANEL_RELAY_URL:http://relay:8090}
+  relay-token: ${PANEL_RELAY_TOKEN:}
+  tenants-file: ${PANEL_TENANTS_FILE:/etc/fp/tenants.yml}
+  poll-seconds: ${PANEL_POLL_SECONDS:10}
+  admin-user: ${PANEL_ADMIN_USER:admin}
+  admin-password-hash: ${PANEL_ADMIN_PASSWORD_HASH:}
+  session-hours: ${PANEL_SESSION_HOURS:12}
+  retention-days: ${PANEL_RETENTION_DAYS:90}
+
+logging:
+  level:
+    io.fprelay.panel: INFO

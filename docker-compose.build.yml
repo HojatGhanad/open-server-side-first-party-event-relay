@@ -1,0 +1,17 @@
+# Build the relay image locally instead of pulling it.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Set REGISTRY to pull base images through a Docker Hub mirror, e.g. REGISTRY=mirror.example.com/
+
+services:
+  relay:
+    build:
+      context: ./relay
+      args:
+        REGISTRY: ${REGISTRY:-}
+    image: ${FP_RELAY_IMAGE:-fp-relay:dev}
+    pull_policy: build
+  panel:
+    image: ${FP_RELAY_IMAGE:-fp-relay:dev}
+    pull_policy: never

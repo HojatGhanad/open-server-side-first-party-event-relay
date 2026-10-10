@@ -1,0 +1,45 @@
+# Tenant routing table: one block per collect hostname.
+#
+# Copy to tenants.yml. The relay re-reads the file within a few seconds of a change,
+# so adding a site needs no restart. If the file is missing, the flat FP_* values
+# from .env are used as a single default tenant.
+
+tenants:
+
+  shop.example.com:
+    # sGTM container that receives this tenant's events.
+    sgtm:           http://sgtm-tagging:8080
+
+    # Path prefix the relay strips before forwarding. Same-origin setups use the path
+    # your reverse proxy routes to the relay. Leave empty for a dedicated subdomain.
+    collect_prefix: /metrics
+
+    # Tag serving path of the Web Container client in your server container.
+    serving_path:   /AbC123xyZ
+
+    # Optional public URL for the tag loader. Pick something that looks like one of
+    # your own static assets.
+    loader_alias:   /assets/js/app.3f9c1a7e.js
+
+    # Protected transport: a random path segment and obfuscation key, unique per site.
+    # The key is delivered to the browser, so treat it as public.
+    segment:        Rk3mQ8sLp2
+    key:            REPLACE-WITH-32-RANDOM-ALPHANUMERICS
+
+    # Other hostnames that share this configuration.
+    aliases:        [www.shop.example.com]
+
+    # Only when the collect host differs from the page host (subdomain mode).
+    # site_origins: [https://shop.example.com, https://www.shop.example.com]
+
+    # Debugging only: routes this tenant's traffic to the preview container.
+    preview_token:  ""
+
+  # A second site:
+  #
+  # metrics.another-site.com:
+  #   sgtm:          http://sgtm-tagging:8080
+  #   serving_path:  /XyZ987abc
+  #   segment:       <10 random alphanumerics>
+  #   key:           <32 random alphanumerics>
+  #   site_origins:  [https://another-site.com]

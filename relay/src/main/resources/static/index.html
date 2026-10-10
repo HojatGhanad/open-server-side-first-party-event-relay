@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>First-party relay: operations</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#14171c; --muted:#697280; --line:#e3e6ea;
+    --accent:#2f5fe0; --ok:#1f8a4c; --warn:#b8791a; --bad:#b4232c;
+    --env:#2f5fe0; --nat:#b8791a; --ldr:#6b7280;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1216; --card:#161a20; --ink:#e8eaed; --muted:#98a1ad; --line:#252b33;
+           --accent:#5b8cff; --ok:#4ec97f; --warn:#e0a84a; --bad:#ff6b6b;
+           --env:#5b8cff; --nat:#e0a84a; --ldr:#8b95a3; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid var(--line);
+         background:var(--card);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  header h1{margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+  nav{margin-left:auto;display:flex;gap:6px;align-items:center}
+  nav button, .btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);
+       padding:6px 12px;border-radius:7px;font:inherit;cursor:pointer}
+  nav button.on{background:var(--accent);color:#fff;border-color:transparent}
+  main{padding:22px;max-width:1180px;margin:0 auto}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:15px 17px}
+  .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .v{font-size:26px;font-weight:640;margin-top:3px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .v.ok{color:var(--ok)} .v.warn{color:var(--warn)} .v.bad{color:var(--bad)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+     margin:26px 0 10px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  td.num,th.num{text-align:right}
+  .chart{width:100%;height:190px;display:block}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+  .sw{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+  .muted{color:var(--muted)}
+  dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);
+         padding:0;width:min(94vw,560px)}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  .dlg{padding:20px 22px}
+  .dlg h3{margin:0 0 14px;font-size:15px}
+  .row{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin-bottom:9px}
+  .row label{font-size:12.5px;color:var(--muted)}
+  .row input{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);
+             color:var(--ink);font:inherit;width:100%}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+  .primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:600}
+  .danger{color:var(--bad)}
+  .hint{font-size:12px;color:var(--muted);margin:-2px 0 14px;line-height:1.5}
+  .banner{background:var(--card);border:1px solid var(--bad);border-left-width:3px;border-radius:8px;
+          padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--bad)}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot" id="dot"></span>First-party relay</h1>
+  <span class="muted mono" id="clock"></span>
+  <nav>
+    <button data-h="1">1h</button>
+    <button data-h="24" class="on">24h</button>
+    <button data-h="168">7d</button>
+    <button data-h="336">14d</button>
+    <button id="logout" title="Sign out">Sign out</button>
+  </nav>
+</header>
+
+<main>
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="grid" id="cards"></div>
+
+  <h2>Traffic by request kind</h2>
+  <div class="card">
+    <svg class="chart" id="chart" preserveAspectRatio="none"></svg>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--env)"></span>envelope: protected transport</span>
+      <span><span class="sw" style="background:var(--nat)"></span>native: Google's shape, unwrapped</span>
+      <span><span class="sw" style="background:var(--ldr)"></span>loader: script fetches</span>
+    </div>
+  </div>
+
+  <h2>Per tenant <span class="muted" style="text-transform:none;letter-spacing:0">- selected window</span></h2>
+  <div class="card" style="padding:4px 8px"><table id="totals"></table></div>
+
+  <h2>Tenants <button class="btn" id="add" style="float:right;margin-top:-4px">Add tenant</button></h2>
+  <div class="card" style="padding:4px 8px"><table id="tenants"></table></div>
+</main>
+
+<dialog id="dlg"><form method="dialog" class="dlg" id="tform">
+  <h3 id="dlgTitle">Add tenant</h3>
+  <p class="hint">Saved to <span class="mono">tenants.yml</span>. The relay picks it up within about
+     five seconds: no restart, no nginx edit.</p>
+  <div class="row"><label for="host">Collect host</label><input id="host" placeholder="edge.example.com" required></div>
+  <div class="row"><label for="sgtm">sGTM URL</label><input id="sgtm" value="http://sgtm-tagging:8080"></div>
+  <div class="row"><label for="serving_path">Serving path</label><input id="serving_path" placeholder="/AbC123xyZ"></div>
+  <div class="row"><label for="loader_alias">Loader alias</label><input id="loader_alias" placeholder="/assets/js/app.abc12345.js"></div>
+  <div class="row"><label for="segment">Segment</label><input id="segment"></div>
+  <div class="row"><label for="key">Key</label><input id="key"></div>
+  <div class="row"><label for="collect_prefix">Collect prefix</label><input id="collect_prefix" placeholder="(empty for new tenants)"></div>
+  <div class="row"><label for="site_origins">Site origins</label><input id="site_origins" placeholder="https://example.com, https://www.example.com"></div>
+  <div class="actions">
+    <button type="button" class="btn" id="gen">Generate secrets</button>
+    <button type="button" class="btn" id="cancel">Cancel</button>
+    <button type="button" class="btn primary" id="save">Save</button>
+  </div>
+</form></dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+let HOURS = 24, live = null, timer = null;
+
+const fmt = n => n == null ? '-' : Number(n).toLocaleString();
+const pct = n => n == null ? '-' : (n*100).toFixed(2) + '%';
+
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  if (r.status === 401){ location.href = '/login'; throw new Error('unauthenticated'); }
+  return r;
+}
+
+function banner(msg){
+  const b = $('#banner');
+  b.hidden = !msg;
+  if (msg) b.textContent = msg;
+}
+
+// ── live cards ────────────────────────────────────────────────────────────────
+async function loadLive(){
+  try {
+    const r = await api('/api/live');
+    const j = await r.json();
+    if (!r.ok){ $('#dot').className='dot bad'; banner('Relay unreachable: ' + (j.detail||'')); return; }
+    banner(''); $('#dot').className='dot ok'; live = j;
+    renderCards(j);
+  } catch(e){ $('#dot').className='dot bad'; }
+  $('#clock').textContent = new Date().toLocaleTimeString();
+}
+
+function renderCards(j){
+  const t = j.tenants || {};
+  let loader=0, envelope=0, nativ=0, delivered=0, failed=0, rejected=0, p95=0;
+  for (const k in t){
+    const s=t[k], r=s.received_by_kind||{};
+    loader+=r.loader||0; envelope+=r.envelope||0; nativ+=r.native||0;
+    delivered+=s.delivered||0; failed+=s.failed||0; rejected+=s.rejected||0;
+    p95=Math.max(p95, s.p95_latency_ms||0);
+  }
+  const events = envelope + nativ;
+  const rate = (delivered+failed) ? delivered/(delivered+failed) : null;
+  const protectedShare = events ? envelope/events : null;
+  const natCls = protectedShare == null ? '' :
+                 protectedShare > 0.98 ? 'ok' : protectedShare > 0.85 ? 'warn' : 'bad';
+  const rateCls = rate == null ? '' : rate > 0.99 ? 'ok' : rate > 0.95 ? 'warn' : 'bad';
+
+  $('#cards').innerHTML = `
+    <div class="card"><div class="k">Events since boot</div><div class="v">${fmt(events)}</div>
+      <div class="sub">${fmt(loader)} loader fetches</div></div>
+    <div class="card"><div class="k">Protected share</div><div class="v ${natCls}">${pct(protectedShare)}</div>
+      <div class="sub">${fmt(nativ)} still native</div></div>
+    <div class="card"><div class="k">Delivery rate</div><div class="v ${rateCls}">${pct(rate)}</div>
+      <div class="sub">${fmt(failed)} failed · ${fmt(rejected)} rejected</div></div>
+    <div class="card"><div class="k">p95 latency</div><div class="v">${fmt(p95)}<span style="font-size:14px"> ms</span></div>
+      <div class="sub">relay → sGTM only</div></div>`;
+}
+
+// ── history ───────────────────────────────────────────────────────────────────
+async function loadHistory(){
+  const grain = HOURS <= 2 ? 'minute' : HOURS <= 48 ? 'hour' : 'day';
+  const [sr, tr] = await Promise.all([
+    api(`/api/series?hours=${HOURS}&grain=${grain}`),
+    api(`/api/totals?hours=${HOURS}`)
+  ]);
+  const s = await sr.json(), t = await tr.json();
+  drawChart(s.rows || []);
+  renderTotals(t.tenants || []);
+}
+
+function drawChart(rows){
+  const svg = $('#chart'), W = svg.clientWidth || 900, H = 190, pad = 26;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (!rows.length){
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="currentColor"
+      opacity=".45" font-size="13">No history yet: the poller writes a row a minute.</text>`;
+    return;
+  }
+  const keys = ['loader','native','envelope'];
+  const colors = {loader:'var(--ldr)', native:'var(--nat)', envelope:'var(--env)'};
+  const max = Math.max(1, ...rows.map(r => keys.reduce((a,k)=>a+Number(r[k]||0),0)));
+  const bw = (W - pad*2) / rows.length;
+  let out = '';
+  rows.forEach((r,i) => {
+    let y = H - pad;
+    keys.forEach(k => {
+      const v = Number(r[k]||0); if (!v) return;
+      const h = (v/max) * (H - pad*2);
+      y -= h;
+      out += `<rect x="${(pad + i*bw).toFixed(1)}" y="${y.toFixed(1)}"
+               width="${Math.max(1,bw-1).toFixed(1)}" height="${h.toFixed(1)}"
+               fill="${colors[k]}" opacity=".9"><title>${k}: ${v}</title></rect>`;
+    });
+  });
+  out += `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="currentColor" opacity=".18"/>`;
+  out += `<text x="${pad}" y="14" font-size="11" fill="currentColor" opacity=".55">peak ${max}/bucket</text>`;
+  svg.innerHTML = out;
+}
+
+function renderTotals(rows){
+  const head = `<tr><th>Tenant</th><th class="num">Envelope</th><th class="num">Native</th>
+    <th class="num">Loader</th><th class="num">Delivered</th><th class="num">Failed</th>
+    <th class="num">Rejected</th><th class="num">p95</th></tr>`;
+  const body = rows.length ? rows.map(r => `<tr>
+      <td class="mono">${r.tenant}</td>
+      <td class="num">${fmt(r.envelope)}</td>
+      <td class="num">${fmt(r.native)}</td>
+      <td class="num">${fmt(r.loader)}</td>
+      <td class="num">${fmt(r.delivered)}</td>
+      <td class="num">${fmt(r.failed)}</td>
+      <td class="num">${fmt(r.rejected)}</td>
+      <td class="num">${fmt(r.p95_ms)}</td></tr>`).join('')
+    : `<tr><td colspan="8" class="muted">Nothing recorded in this window yet.</td></tr>`;
+  $('#totals').innerHTML = head + body;
+}
+
+// ── tenants ───────────────────────────────────────────────────────────────────
+async function loadTenants(){
+  const r = await api('/api/tenants');
+  const j = await r.json();
+  const t = j.tenants || {};
+  const head = `<tr><th>Host</th><th>Loader</th><th>Segment</th><th>sGTM</th><th></th></tr>`;
+  const keys = Object.keys(t);
+  const body = keys.length ? keys.map(h => {
+    const v = t[h] || {};
+    const loader = v.loader_alias || ((v.collect_prefix||'') + (v.serving_path||'') + '/');
+    return `<tr>
+      <td class="mono">${h}</td>
+      <td class="mono muted">${loader||'-'}</td>
+      <td class="mono muted">${v.segment||'-'}</td>
+      <td class="mono muted">${v.sgtm||'-'}</td>
+      <td style="text-align:right">
+        <button class="btn" data-edit="${h}">Edit</button>
+        <button class="btn danger" data-del="${h}">Delete</button></td></tr>`;
+  }).join('') : `<tr><td colspan="5" class="muted">No tenants. Add one to start routing.</td></tr>`;
+  $('#tenants').innerHTML = head + body;
+
+  $('#tenants').querySelectorAll('[data-edit]').forEach(b =>
+    b.onclick = () => openDialog(b.dataset.edit, t[b.dataset.edit] || {}));
+  $('#tenants').querySelectorAll('[data-del]').forEach(b =>
+    b.onclick = async () => {
+      if (!confirm(`Remove ${b.dataset.del}? Its traffic stops being routed within ~5s.`)) return;
+      await api('/api/tenants/' + encodeURIComponent(b.dataset.del), {method:'DELETE'});
+      loadTenants();
+    });
+}
+
+const F = ['host','sgtm','serving_path','loader_alias','segment','key','collect_prefix','site_origins'];
+
+function openDialog(host, v){
+  $('#dlgTitle').textContent = host ? 'Edit tenant' : 'Add tenant';
+  $('#host').value = host || '';
+  $('#host').readOnly = !!host;
+  $('#sgtm').value = v.sgtm || 'http://sgtm-tagging:8080';
+  $('#serving_path').value = v.serving_path || '';
+  $('#loader_alias').value = v.loader_alias || '';
+  $('#segment').value = v.segment || '';
+  $('#key').value = v.key || '';
+  $('#collect_prefix').value = v.collect_prefix || '';
+  $('#site_origins').value = Array.isArray(v.site_origins) ? v.site_origins.join(', ') : (v.site_origins || '');
+  $('#dlg').showModal();
+}
+
+$('#add').onclick = () => openDialog('', {});
+$('#cancel').onclick = () => $('#dlg').close();
+$('#gen').onclick = async () => {
+  const j = await (await api('/api/generate')).json();
+  $('#segment').value = j.segment; $('#key').value = j.key;
+  if (!$('#loader_alias').value) $('#loader_alias').value = j.loader_alias;
+};
+$('#save').onclick = async () => {
+  const body = {};
+  F.forEach(k => body[k] = $('#'+k).value.trim());
+  body.site_origins = body.site_origins
+    ? body.site_origins.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const r = await api('/api/tenants', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok){ alert(j.error || 'Save failed'); return; }
+  $('#dlg').close(); loadTenants();
+};
+
+$('#logout').onclick = async () => { await api('/api/logout',{method:'POST'}); location.href='/login'; };
+document.querySelectorAll('nav [data-h]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav [data-h]').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); HOURS = +b.dataset.h; loadHistory();
+});
+
+async function boot(){
+  await loadLive();
+  await loadTenants();
+  try { await loadHistory(); } catch(e){}
+  clearInterval(timer);
+  timer = setInterval(() => { loadLive(); }, 10000);
+  setInterval(() => { loadHistory().catch(()=>{}); }, 60000);
+}
+window.addEventListener('resize', () => loadHistory().catch(()=>{}));
+boot();
+</script>
+</body>
+</html>

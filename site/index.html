@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Server Side First Party Event Relay: self-hosted sGTM relay for GA4 &amp; Google Ads</title>
+<meta name="description" content="Free, open-source first-party tracking relay for server-side Google Tag Manager. Send GA4 and Google Ads events through your own domain. A self-hosted alternative to Stape and Addingwell.">
+<meta name="keywords" content="server-side tracking, server-side tagging, first-party tracking, server-side Google Tag Manager, sGTM, GA4 server-side, Google Ads conversion tracking, Stape alternative, Addingwell alternative, open source, self-hosted, ad blocker, Safari ITP">
+<link rel="canonical" href="https://hojatghanad.github.io/open-server-side-first-party-event-relay/">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Hojat Ghanad">
+<meta name="theme-color" content="#15213B">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Open Server Side First Party Event Relay">
+<meta property="og:title" content="First-party server-side tracking for GA4 and Google Ads, open source">
+<meta property="og:description" content="Self-hosted relay for Google's official server-side GTM. Your domain, your server, accurate attribution.">
+<meta property="og:url" content="https://hojatghanad.github.io/open-server-side-first-party-event-relay/">
+<meta property="og:image" content="https://hojatghanad.github.io/open-server-side-first-party-event-relay/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="First-party server-side tracking for GA4 and Google Ads, open source">
+<meta name="twitter:description" content="Self-hosted relay for Google's official server-side GTM. Your domain, your server, accurate attribution.">
+<meta name="twitter:image" content="https://hojatghanad.github.io/open-server-side-first-party-event-relay/og.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Open Server Side First Party Event Relay",
+  "alternateName": "fp-relay",
+  "description": "Open-source, self-hosted first-party tracking relay for server-side Google Tag Manager. Sends GA4 and Google Ads events through your own domain.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, Docker",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "url": "https://hojatghanad.github.io/open-server-side-first-party-event-relay/",
+  "downloadUrl": "https://github.com/HojatGhanad/open-server-side-first-party-event-relay",
+  "codeRepository": "https://github.com/HojatGhanad/open-server-side-first-party-event-relay",
+  "programmingLanguage": "Java",
+  "author": { "@type": "Person", "name": "Hojat Ghanad" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Is this a replacement for server-side Google Tag Manager?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. It runs with Google's official sGTM container. The relay handles first-party routing, visitor IP forwarding, multi-site configuration and protected transport. sGTM runs your tags." } },
+    { "@type": "Question", "name": "Is it a free alternative to Stape?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It covers the same core use case, first-party server-side tagging for GA4 and Google Ads, as an open-source project you host yourself. Stape is a managed service with a broad catalogue of add-ons and support." } },
+    { "@type": "Question", "name": "Does it work with Google Ads conversion tracking?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Google Ads tags run inside your sGTM container as usual. The relay only changes how events reach sGTM." } },
+    { "@type": "Question", "name": "Will GA4 show the correct visitor location?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, as long as your reverse proxy sets X-Forwarded-For. The relay forwards the visitor IP to sGTM, which passes it to Google for geolocation." } },
+    { "@type": "Question", "name": "Does it bypass ad blockers?",
+      "acceptedAnswer": { "@type": "Answer", "text": "First-party routing avoids blocklists that target Google's domains, and protected transport avoids generic rules that match Google's request paths. No technique is guaranteed against every blocker or future filter rule." } },
+    { "@type": "Question", "name": "Can I run several websites on one server?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Add one block per hostname to tenants.yml. Each site can have its own sGTM target, keys and paths, and changes apply without a restart." } }
+  ]
+}
+</script>
+
+<style>
+:root{
+  --paper:#F3F5F8; --surface:#FFFFFF; --ink:#15213B; --muted:#55627A; --line:#D5DCE6;
+  --red:#C8102E; --blue:#1F4FD1; --code-bg:#15213B; --code-ink:#E7EDF7;
+  --display:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --body:"Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --stripe:repeating-linear-gradient(135deg, var(--red) 0 14px, transparent 14px 22px, var(--blue) 22px 36px, transparent 36px 44px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F1A2D; --surface:#16233B; --ink:#EAF0F8; --muted:#9AA8BF; --line:#2A3A55;
+    --red:#FF5A6E; --blue:#7EA2FF; --code-bg:#0A1322; --code-ink:#DCE5F3; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F1A2D; --surface:#16233B; --ink:#EAF0F8; --muted:#9AA8BF; --line:#2A3A55;
+  --red:#FF5A6E; --blue:#7EA2FF; --code-bg:#0A1322; --code-ink:#DCE5F3; color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--body);
+     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--blue);text-underline-offset:3px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:4px}
+img,svg{max-width:100%;height:auto}
+code,pre{font-family:var(--mono)}
+code{font-size:.88em;background:color-mix(in srgb, var(--blue) 10%, transparent);padding:.1em .35em;border-radius:5px}
+
+.airmail{height:8px;background:var(--stripe);background-size:62px 8px}
+
+.wrap{width:min(1120px, 100% - 32px);margin-inline:auto}
+.skip{position:absolute;left:-999px;top:8px;background:var(--surface);padding:8px 12px;border-radius:6px;z-index:9}
+.skip:focus{left:16px}
+
+/* header */
+.site-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font:700 17px/1.2 var(--display)}
+.brand svg{width:30px;height:30px;flex:none}
+.head-links{display:flex;gap:6px;align-items:center}
+.head-links a{color:var(--ink);text-decoration:none;font-weight:500;padding:8px 12px;border-radius:8px}
+.head-links a:hover{background:color-mix(in srgb, var(--ink) 7%, transparent)}
+.theme{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;
+       width:38px;height:38px;cursor:pointer;font-size:16px}
+@media (max-width:720px){ .head-links .opt{display:none} }
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:40px 0 72px}
+.hero h1{font:800 clamp(40px, 6.2vw, 74px)/.98 var(--display);letter-spacing:-.022em;margin:0 0 22px;
+         font-variation-settings:"opsz" 96;text-wrap:balance}
+.lead{font-size:clamp(18px, 2vw, 21px);line-height:1.55;color:var(--muted);max-width:34em;margin:0 0 30px}
+.lead strong{color:var(--ink);font-weight:600}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}
+.btn{display:inline-flex;align-items:center;gap:8px;font:600 16px/1 var(--body);padding:14px 20px;
+     border-radius:10px;text-decoration:none;border:2px solid var(--ink)}
+.btn-primary{background:var(--ink);color:var(--paper)}
+.btn-primary:hover{background:color-mix(in srgb, var(--ink) 86%, var(--blue))}
+.btn-ghost{color:var(--ink);background:transparent}
+.btn-ghost:hover{background:color-mix(in srgb, var(--ink) 6%, transparent)}
+.term{display:inline-flex;align-items:center;gap:12px;background:var(--code-bg);color:var(--code-ink);
+      border-radius:10px;padding:12px 14px 12px 16px;font:400 15px/1.4 var(--mono);max-width:100%;overflow:auto}
+.term .p{color:#8FB0FF;user-select:none}
+.copy{border:1px solid rgba(255,255,255,.22);background:transparent;color:inherit;border-radius:6px;
+      font:500 12px/1 var(--body);padding:7px 9px;cursor:pointer}
+.copy:hover{background:rgba(255,255,255,.08)}
+
+.route{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px}
+.route figcaption{font-size:14px;color:var(--muted);margin-top:10px;text-align:center}
+.route .node rect{fill:var(--paper);stroke:var(--line);stroke-width:1.5}
+.route .node.relay rect.base{fill:var(--surface);stroke:none}
+.route .node.relay rect.stripe{fill:url(#stripe);stroke:none}
+.route text{font-family:var(--body);fill:var(--ink)}
+.route .t1{font-size:16px;font-weight:600}
+.route .t2{font-size:12.5px;fill:var(--muted);font-family:var(--mono)}
+.route .wire{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 5}
+.route .wire.live{stroke:var(--blue);stroke-dasharray:none;stroke-width:2}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;gap:40px;padding-top:16px}
+  .route{max-width:440px;margin-inline:auto;width:100%}
+}
+
+/* sections */
+section{padding:72px 0;border-top:1px solid var(--line)}
+h2{font:700 clamp(30px, 4vw, 44px)/1.08 var(--display);letter-spacing:-.025em;margin:0 0 14px;text-wrap:balance}
+h3{font:700 20px/1.25 var(--display);letter-spacing:-.01em;margin:0 0 6px}
+.intro{color:var(--muted);max-width:40em;margin:0 0 40px;font-size:18px}
+
+/* problem / answer */
+.pairs{display:grid;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
+.pair{display:grid;grid-template-columns:1fr 1fr}
+.pair + .pair{border-top:1px solid var(--line)}
+.pair > div{padding:24px 26px}
+.pair .loss{border-right:1px solid var(--line)}
+.pair .k{font-size:14px;font-weight:600;margin-bottom:6px}
+.pair .loss .k{color:var(--red)}
+.pair .fix .k{color:var(--blue)}
+.pair p{margin:0;color:var(--muted)}
+.pair p b{color:var(--ink);font-weight:600}
+.pairs-head{display:grid;grid-template-columns:1fr 1fr;padding:0 26px 10px;font:600 15px/1.3 var(--body);color:var(--muted)}
+@media (max-width:720px){
+  .pair{grid-template-columns:1fr}
+  .pair .loss{border-right:0;border-bottom:1px dashed var(--line)}
+  .pairs-head{display:none}
+}
+
+/* steps */
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:28px;counter-reset:s}
+.steps li{counter-increment:s;position:relative;padding-top:58px}
+.steps li::before{content:counter(s);position:absolute;top:0;left:0;width:42px;height:42px;border-radius:50%;
+  display:grid;place-items:center;font:700 18px/1 var(--display);border:2px solid var(--ink)}
+.steps li:last-child::before{background:var(--ink);color:var(--paper)}
+.steps p{margin:0;color:var(--muted)}
+@media (max-width:900px){ .steps{grid-template-columns:1fr 1fr} }
+@media (max-width:560px){ .steps{grid-template-columns:1fr} }
+
+/* features */
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:36px 44px}
+.feature .ico{font-size:28px;line-height:1;margin-bottom:12px;display:block}
+.feature p{margin:0;color:var(--muted)}
+.feature.big{grid-column:span 3;display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 28px;position:relative;overflow:hidden}
+.feature.big::before{content:"";position:absolute;inset:0 0 auto 0;height:6px;background:var(--stripe);background-size:62px 6px}
+.feature.big .ico{font-size:36px;margin:4px 0 0}
+@media (max-width:900px){ .features{grid-template-columns:1fr 1fr} .feature.big{grid-column:span 2} }
+@media (max-width:560px){ .features{grid-template-columns:1fr} .feature.big{grid-column:auto;grid-template-columns:1fr} }
+
+/* comparison */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:15.5px}
+th,td{text-align:left;padding:15px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font:600 14px/1.3 var(--body);color:var(--muted);background:color-mix(in srgb, var(--ink) 3%, transparent)}
+tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+tbody th{font-weight:600;white-space:nowrap}
+tr.us th, tr.us td{background:color-mix(in srgb, var(--blue) 8%, transparent)}
+tr.us th{color:var(--blue)}
+.choose{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:36px}
+.choose ul{margin:8px 0 0;padding-left:1.1em;color:var(--muted)}
+.choose li{margin:4px 0}
+@media (max-width:720px){ .choose{grid-template-columns:1fr} }
+
+/* quick start */
+.qs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;list-style:none;margin:0;padding:0;counter-reset:q}
+.qs li{min-width:0;counter-increment:q;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.qs h3::before{content:counter(q) ". ";color:var(--blue)}
+.qs p{margin:0;color:var(--muted);font-size:16px}
+pre{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:14px 16px;
+    font-size:13.5px;line-height:1.6;overflow-x:auto;tab-size:2}
+pre .c{color:#8C9BB5}
+@media (max-width:900px){ .qs{grid-template-columns:minmax(0,1fr)} }
+
+.note{margin-top:28px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;
+      border-left:4px solid var(--blue);padding:4px 0 4px 18px;max-width:52em}
+.note .ico{font-size:26px;line-height:1.2}
+.note p{margin:0;color:var(--muted)}
+.note p + p{margin-top:8px}
+
+/* deploy modes */
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.mode{border-top:3px solid var(--line);padding-top:16px}
+.mode.rec{border-top-color:var(--blue)}
+.mode .url{font:400 14px/1.4 var(--mono);color:var(--ink);margin:4px 0 8px;word-break:break-all}
+.mode p{margin:0;color:var(--muted)}
+.badge{display:inline-block;font:600 12.5px/1 var(--body);color:var(--blue);border:1px solid currentColor;border-radius:999px;padding:4px 8px;margin-left:6px;vertical-align:3px}
+@media (max-width:900px){ .modes{grid-template-columns:1fr} }
+
+/* faq */
+.faq-inner{max-width:820px}
+details{border-bottom:1px solid var(--line)}
+details:first-of-type{border-top:1px solid var(--line)}
+summary{cursor:pointer;list-style:none;padding:20px 40px 20px 0;font:600 18px/1.35 var(--body);position:relative}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";position:absolute;right:6px;top:16px;font:500 26px/1 var(--display);color:var(--blue);transition:transform .2s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{margin:0 0 20px;color:var(--muted);max-width:44em}
+@media (prefers-reduced-motion: reduce){ summary::after{transition:none} }
+
+/* closing */
+.closing{text-align:center;padding:88px 0}
+.closing h2{max-width:16em;margin-inline:auto}
+.closing .cta{justify-content:center;margin:26px 0 0}
+
+footer{border-top:1px solid var(--line);padding:32px 0 40px;font-size:14.5px;color:var(--muted)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}
+.foot nav{display:flex;flex-wrap:wrap;gap:18px}
+.foot a{color:var(--ink)}
+.legal{margin-top:18px;font-size:13px;max-width:60em}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="airmail" aria-hidden="true"></div>
+
+<div class="wrap">
+  <header class="site-head">
+    <a class="brand" href="./" aria-label="Open Server Side First Party Event Relay, home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="7" width="28" height="19" rx="3" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3.5 9 16 18.5 28.5 9" fill="none" stroke="#C8102E" stroke-width="2.4" stroke-linejoin="round"/><path d="M3.5 24.5 12 16.6M28.5 24.5 20 16.6" stroke="#1F4FD1" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span>First Party Event Relay</span>
+    </a>
+    <nav class="head-links" aria-label="Main">
+      <a class="opt" href="#how">How it works</a>
+      <a class="opt" href="#compare">Compare</a>
+      <a class="opt" href="#start">Quick start</a>
+      <a href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay">GitHub</a>
+      <button class="theme" id="theme" type="button" aria-label="Toggle dark mode">🌓</button>
+    </nav>
+  </header>
+</div>
+
+<main id="main">
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>First-party server-side tracking for GA4 and Google Ads</h1>
+        <p class="lead"><strong>Open Server Side First Party Event Relay</strong> is a free, open-source relay for Google's official server-side Tag Manager. Your events travel through your own domain, on a server you control, so ad blockers, short-lived cookies and wrong geolocation stop eating your conversion data. 📡</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#start">Get started</a>
+          <a class="btn btn-ghost" href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay">⭐ Star on GitHub</a>
+        </div>
+        <div class="term" role="group" aria-label="Start command">
+          <span><span class="p">$ </span><span id="cmd">docker compose up -d</span></span>
+          <button class="copy" type="button" data-copy="cmd">Copy</button>
+        </div>
+      </div>
+
+      <figure class="route" style="margin:0">
+        <svg viewBox="0 0 360 452" role="img" aria-labelledby="route-title route-desc" id="route">
+          <title id="route-title">How an event travels</title>
+          <desc id="route-desc">The browser sends an event to a path on your own domain. Your reverse proxy passes it to the relay, which forwards it to Google's server-side Tag Manager. sGTM delivers it to GA4, Google Ads and other tags.</desc>
+          <defs>
+            <pattern id="stripe" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="7" height="22" fill="#C8102E"/><rect x="11" width="7" height="22" fill="#1F4FD1"/>
+            </pattern>
+          </defs>
+
+          <path class="wire" d="M180 56 V92"/>
+          <path class="wire" d="M180 148 V184"/>
+          <path class="wire" d="M180 240 V276"/>
+          <path class="wire" d="M180 332 V356 H52 V388"/>
+          <path class="wire" d="M180 332 V388"/>
+          <path class="wire" d="M180 356 H308 V388"/>
+          <path class="wire live" d="M180 56 V356 H52 V388" id="livepath" opacity="0"/>
+
+          <g class="node"><rect x="30" y="0" width="300" height="56" rx="12"/>
+            <text class="t1" x="50" y="25">🧑‍💻 Visitor's browser</text><text class="t2" x="50" y="44">gtag.js / GTM web container</text></g>
+          <g class="node"><rect x="30" y="92" width="300" height="56" rx="12"/>
+            <text class="t1" x="50" y="117">🔀 Your domain</text><text class="t2" x="50" y="136">shop.example.com/metrics</text></g>
+          <g class="node relay">
+            <rect class="stripe" x="28" y="182" width="304" height="60" rx="14"/>
+            <rect class="base" x="33" y="187" width="294" height="50" rx="10"/>
+            <text class="t1" x="50" y="209">📡 Relay</text><text class="t2" x="50" y="227">routing, visitor IP, envelopes</text></g>
+          <g class="node"><rect x="30" y="276" width="300" height="56" rx="12"/>
+            <text class="t1" x="50" y="301">🧠 Google sGTM</text><text class="t2" x="50" y="320">official server container</text></g>
+          <g class="node"><rect x="0" y="388" width="104" height="52" rx="12"/><text class="t1" x="52" y="419" text-anchor="middle">📊 GA4</text></g>
+          <g class="node"><rect x="128" y="388" width="104" height="52" rx="12"/><text class="t1" x="180" y="419" text-anchor="middle">🎯 Ads</text></g>
+          <g class="node"><rect x="256" y="388" width="104" height="52" rx="12"/><text class="t1" x="308" y="419" text-anchor="middle">➕ More</text></g>
+
+          <g id="env" opacity="0">
+            <rect x="-13" y="-9" width="26" height="18" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+            <path d="M-12 -7 0 2 12 -7" fill="none" stroke="#C8102E" stroke-width="1.8"/>
+            <animateMotion id="fly" dur="3.4s" begin="indefinite" fill="freeze" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+              <mpath href="#livepath"/>
+            </animateMotion>
+          </g>
+        </svg>
+        <figcaption>One event, start to finish. Everything above Google runs on your infrastructure.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <section id="why" aria-labelledby="why-h">
+    <div class="wrap">
+      <h2 id="why-h">What client-side tracking quietly loses</h2>
+      <p class="intro">The tag still fires and the dashboard still fills up. The gaps only show when you compare GA4 with your orders.</p>
+      <div class="pairs-head" aria-hidden="true"><span>The leak</span><span>What the relay does</span></div>
+      <div class="pairs">
+        <div class="pair">
+          <div class="loss"><div class="k">🚫 Blocked requests</div><p>Ad blockers and privacy extensions block <b>google-analytics.com</b> and <b>googletagmanager.com</b>. Those conversions never reach GA4 or Google Ads bidding.</p></div>
+          <div class="fix"><div class="k">🏠 Your own domain</div><p>Events go to a path on your site, like <b>/metrics</b>. Optional protected transport also changes the request shape, so generic path rules do not match.</p></div>
+        </div>
+        <div class="pair">
+          <div class="loss"><div class="k">🍪 Cookies that expire in days</div><p>Safari's Intelligent Tracking Prevention caps cookies written by JavaScript to 7 days. Returning customers start to look like new ones.</p></div>
+          <div class="fix"><div class="k">🔒 Server-set first-party cookie</div><p>sGTM sets an <b>HTTP-only FPID cookie</b> from your own host, in a true first-party context.</p></div>
+        </div>
+        <div class="pair">
+          <div class="loss"><div class="k">🌍 Everyone lives in your data center</div><p>A careless proxy sends your server's IP to Google, and every visitor is geolocated to one city.</p></div>
+          <div class="fix"><div class="k">📍 Real visitor IP forwarded</div><p>The relay passes the visitor's IP, host and scheme to sGTM, so GA4 reports the right country and city.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <h2 id="how-h">How it works</h2>
+      <p class="intro">The relay is a thin layer in front of Google's own server container. Your GTM tags, clients and templates stay exactly as they are.</p>
+      <ol class="steps">
+        <li><h3>Tag points home</h3><p>Your Google tag uses <code>server_container_url</code> set to a path on your own domain.</p></li>
+        <li><h3>Proxy hands off</h3><p>nginx, Caddy or your CDN routes that path to the relay on the same server.</p></li>
+        <li><h3>Relay forwards</h3><p>It finds the site by hostname, forwards the request with the visitor IP, and returns the first-party cookie.</p></li>
+        <li><h3>sGTM delivers</h3><p>Google's server container runs your tags and sends the data to GA4, Google Ads and more.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="features" aria-labelledby="features-h">
+    <div class="wrap">
+      <h2 id="features-h">Features</h2>
+      <p class="intro">Small enough to read in an afternoon, complete enough to run many sites from one box.</p>
+      <div class="features">
+        <div class="feature big"><span class="ico" aria-hidden="true">🛡️</span>
+          <div><h3>Protected transport</h3><p>The relay prepends a small script to the tag loader. GA4 requests to your collect path are wrapped in an opaque envelope and posted to a random path unique to your site. The relay unwraps them, so sGTM receives the original request. If the script ever fails, the standard path keeps working.</p></div></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🧠</span><h3>Google's official sGTM inside</h3><p>No new SDK and no new schema. Keep using Tag Manager and its template gallery.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🏢</span><h3>Many sites, one deployment</h3><p>Each hostname gets its own routing, keys and sGTM target in <code>tenants.yml</code>.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🔁</span><h3>Changes without restarts</h3><p>Edit the routing table and the relay reloads it within seconds.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">📦</span><h3>First-party tag loader</h3><p>Serve the GTM loader from your domain, under a path that looks like your own assets.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🔍</span><h3>Built-in debugging</h3><p>Health, summary and per-event traces for your own browser, plus GTM Preview routing.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🖥️</span><h3>Operations panel</h3><p>Live and historical traffic per site, delivery rate and latency, with tenant editing in the browser.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare" aria-labelledby="compare-h">
+    <div class="wrap">
+      <h2 id="compare-h">How it compares to Stape, Addingwell and others</h2>
+      <p class="intro">Same goal as the managed sGTM hosts: first-party server-side tagging. Different trade-off: you run it, and you pay only for your server.</p>
+      <div class="table-wrap">
+        <table>
+          <caption class="skip">Comparison of server-side tracking options</caption>
+          <thead><tr><th scope="col">Option</th><th scope="col">What it is</th><th scope="col">Where it runs</th><th scope="col">Source</th></tr></thead>
+          <tbody>
+            <tr class="us"><th scope="row">This project</th><td>Relay in front of Google's official sGTM, with first-party routing, multi-site config and protected transport</td><td>Your own server</td><td>✅ Open source, MIT</td></tr>
+            <tr><th scope="row">Stape</th><td>Managed sGTM hosting with add-ons such as Custom GTM Loader and Cookie Keeper</td><td>Vendor cloud</td><td>Proprietary service</td></tr>
+            <tr><th scope="row">Addingwell</th><td>Managed sGTM hosting</td><td>Vendor cloud</td><td>Proprietary service</td></tr>
+            <tr><th scope="row">TAGGRS</th><td>Managed sGTM hosting</td><td>Vendor cloud</td><td>Proprietary service</td></tr>
+            <tr><th scope="row">JENTIS</th><td>Server-side tracking platform</td><td>Vendor managed</td><td>Proprietary service</td></tr>
+            <tr><th scope="row">sGTM on Cloud Run</th><td>Google's reference way to self-host sGTM</td><td>Your Google Cloud project</td><td>Google's container, not open source</td></tr>
+            <tr><th scope="row">Segment, RudderStack, Snowplow</th><td>Customer data platforms and event pipelines</td><td>SaaS or self-hosted</td><td>Varies</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="choose">
+        <div><h3>👍 A good fit if you want to</h3>
+          <ul><li>pay for a server, not per request</li><li>keep the whole pipeline on infrastructure you control</li><li>keep Google Tag Manager and Google's official sGTM</li><li>serve several websites from one deployment</li></ul></div>
+        <div><h3>🤷 Look elsewhere if you</h3>
+          <ul><li>would rather not operate a server at all (a managed host fits better)</li><li>need a vendor-neutral event schema and many non-Google destinations (a CDP fits better)</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="start" aria-labelledby="start-h">
+    <div class="wrap">
+      <h2 id="start-h">Quick start</h2>
+      <p class="intro">You need a Linux server with Docker, a site on HTTPS, and a Google Tag Manager server container. <a href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay/blob/main/docs/getting-started.md">Full guide</a>.</p>
+      <ol class="qs">
+        <li><h3>Configure</h3><p>Paste the container config from Tag Manager and pick a debug token.</p>
+<pre><code>git clone https://github.com/HojatGhanad/open-server-side-first-party-event-relay.git
+cd open-server-side-first-party-event-relay
+cp .env.example .env
+cp tenants.example.yml tenants.yml</code></pre></li>
+        <li><h3>Start</h3><p>The relay and two sGTM containers come up on your server.</p>
+<pre><code>docker compose up -d
+docker compose ps</code></pre></li>
+        <li><h3>Route and point</h3><p>Send a path on your site to the relay, then set it as the tagging server URL.</p>
+<pre><code>location /metrics/ {
+  proxy_pass http://127.0.0.1:8090;
+  proxy_set_header X-Forwarded-For
+    $proxy_add_x_forwarded_for;
+}
+<span class="c"># Google tag: server_container_url =</span>
+<span class="c"># https://your-domain.com/metrics</span></code></pre></li>
+      </ol>
+
+      <h3 style="margin-top:56px">Deployment options</h3>
+      <div class="modes" style="margin-top:18px">
+        <div class="mode rec"><h3>Same-origin <span class="badge">recommended</span></h3><div class="url">shop.example.com/metrics/</div><p>Longest cookie lifetime in every browser, no CORS, no extra certificate.</p></div>
+        <div class="mode"><h3>Subdomain</h3><div class="url">metrics.shop.example.com</div><p>When you can only add a DNS record. Safari may cap the cookie at 7 days.</p></div>
+        <div class="mode"><h3>CDN path routing</h3><div class="url">/metrics/* → relay origin</div><p>For sites behind a CDN that supports per-path origins.</p></div>
+      </div>
+
+      <div class="note">
+        <span class="ico" aria-hidden="true">🌍</span>
+        <div>
+          <p><b style="color:var(--ink)">Works in restricted networks.</b> The relay was developed and tested on networks where public container registries may be unreachable, including in Iran. Ship images over SSH with the included script, build through a Docker Hub mirror, or route the collect path through a regional CDN such as ArvanCloud.</p>
+          <p>The server running sGTM still needs outbound access to Google's collection endpoints.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-h">
+    <div class="wrap"><div class="faq-inner">
+      <h2 id="faq-h">Questions</h2>
+      <details><summary>Is this a replacement for server-side Google Tag Manager?</summary><p>No. It runs with Google's official sGTM container. The relay handles first-party routing, visitor IP forwarding, multi-site configuration and protected transport. sGTM runs your tags.</p></details>
+      <details><summary>Is it a free alternative to Stape?</summary><p>It covers the same core use case, first-party server-side tagging for GA4 and Google Ads, as an open-source project you host yourself. Stape is a managed service with a broad catalogue of add-ons and support. If you would rather not operate a server, a managed service is a good choice.</p></details>
+      <details><summary>Does it work with Google Ads conversion tracking?</summary><p>Yes. Google Ads tags run inside your sGTM container as usual. The relay only changes how events reach sGTM.</p></details>
+      <details><summary>Will GA4 show the correct visitor location?</summary><p>Yes, as long as your reverse proxy sets <code>X-Forwarded-For</code>. The relay forwards the visitor IP to sGTM, which passes it to Google for geolocation. Check the country in GA4 Realtime after setup.</p></details>
+      <details><summary>Does it bypass ad blockers?</summary><p>First-party routing avoids blocklists that target Google's domains, and protected transport avoids generic rules that match Google's request paths. No technique is guaranteed against every blocker or future filter rule.</p></details>
+      <details><summary>Can I run several websites on one server?</summary><p>Yes. Add one block per hostname to <code>tenants.yml</code>. Each site can have its own sGTM target, keys and paths, and changes apply without a restart.</p></details>
+    </div></div>
+  </section>
+
+  <section class="closing" aria-labelledby="closing-h">
+    <div class="wrap">
+      <h2 id="closing-h">Your domain, your server, your conversion data.</h2>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay">View the code on GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay/tree/main/docs">Read the docs</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span>MIT licensed. Built by <a href="https://github.com/HojatGhanad">Hojat Ghanad</a>.</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay">GitHub</a>
+        <a href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay/tree/main/docs">Docs</a>
+        <a href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay/issues">Issues</a>
+        <a href="https://github.com/HojatGhanad/open-server-side-first-party-event-relay/blob/main/SECURITY.md">Security</a>
+      </nav>
+    </div>
+    <p class="legal">Google Analytics, Google Ads and Google Tag Manager are trademarks of Google LLC. This project is not affiliated with or endorsed by Google, Stape, Addingwell, TAGGRS, JENTIS, Segment, RudderStack or Snowplow.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+  document.getElementById('theme').addEventListener('click', function () {
+    var dark = root.getAttribute('data-theme') === 'dark' ||
+      (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    var next = dark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = document.getElementById(b.getAttribute('data-copy')).textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () {
+        b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1600);
+      });
+    });
+  });
+
+  // One delivery animation on load, skipped when reduced motion is requested.
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    var env = document.getElementById('env'), fly = document.getElementById('fly'),
+        live = document.getElementById('livepath');
+    setTimeout(function () {
+      env.setAttribute('opacity', '1');
+      live.setAttribute('opacity', '1');
+      if (fly.beginElement) fly.beginElement();
+    }, 700);
+  } else {
+    document.getElementById('livepath').setAttribute('opacity', '1');
+  }
+})();
+</script>
+</body>
+</html>

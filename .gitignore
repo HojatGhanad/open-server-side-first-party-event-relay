@@ -1,0 +1,16 @@
+# secrets and local config
+.env
+tenants.yml
+
+# build output
+relay/target/
+dist/
+*.tar.gz
+*.sha256
+
+# editors / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
